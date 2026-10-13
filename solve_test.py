@@ -14,14 +14,14 @@ import re
 import warnings
 from pathlib import Path
 
-logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
-
 import numpy as np
 from astropy.io import fits
 from astropy.wcs import WCS
 from astropy.wcs.utils import proj_plane_pixel_scales
 
 from wilds.solving import PlateSolver, PositionHint, ScaleHint, extract_sources
+
+logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 
 _SEARCH_ROOTS = [
     Path("/Storage/mast-share/MAST/mastw"),

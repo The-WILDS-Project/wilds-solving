@@ -11,7 +11,7 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 import pytest
 
-from wilds.solving.solver import PlateSolver, PositionHint, ScaleHint, SolveResult
+from wilds.solving.solver import PlateSolver, ScaleHint, SolveResult
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -154,8 +154,8 @@ async def test_solve_async_returns_result():
 def test_live_solve():
     """Solve a synthetic field — requires index files in WILDS_ASTROMETRY_CACHE."""
     cache = os.environ["WILDS_ASTROMETRY_CACHE"]
-    from wilds.solving.extractor import extract_sources
     from tests.conftest import make_synthetic_image
+    from wilds.solving.extractor import extract_sources
 
     image, _ = make_synthetic_image(shape=(512, 512), n_stars=30, star_flux=5000.0)
     sources = extract_sources(image)

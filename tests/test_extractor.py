@@ -1,5 +1,4 @@
 import numpy as np
-import pytest
 
 from wilds.solving.extractor import extract_sources
 
