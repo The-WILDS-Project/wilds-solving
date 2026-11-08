@@ -128,7 +128,7 @@ class PlateSolver:
             logger.info("Found %d local index file(s) in %s", len(self._index_files), resolved / "5200")
         self._solver: astrometry.Solver | None = None
 
-    def __enter__(self) -> "PlateSolver":
+    def __enter__(self) -> PlateSolver:
         self._solver = astrometry.Solver(self._index_files)
         self._solver.__enter__()
         return self
