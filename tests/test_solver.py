@@ -170,3 +170,81 @@ def test_live_solve():
     # Synthetic image has no real sky coords so no match expected, but the
     # call must complete without error.
     assert result is None or isinstance(result, SolveResult)
+
+
+# ---------------------------------------------------------------------------
+# Orientation: which way is north in the image, and is it mirrored
+# ---------------------------------------------------------------------------
+
+
+def _wcs(angle_ccw: float, parity: int = 1, scale_arcsec: float = 0.3):
+    """A WCS for an image (x right, y down) in which north is ``angle_ccw`` degrees counter-
+    clockwise from the top, mirrored when ``parity`` is -1."""
+    import math
+
+    from astropy.wcs import WCS
+
+    s = scale_arcsec / 3600.0
+    a = math.radians(angle_ccw)
+    n = (-math.sin(a), -math.cos(a))  # north's direction in pixels (x right, y down)
+    e = (parity * -math.cos(a), parity * math.sin(a))  # east: 90 degrees counter-clockwise
+    # pixel offset = M (east, north) arcsec;  world offset = M^-1 pixel offset
+    m = np.array([[e[0], n[0]], [e[1], n[1]]]) / s
+    inv = np.linalg.inv(m)
+    w = WCS(naxis=2)
+    w.wcs.crpix = [500.0, 400.0]
+    w.wcs.crval = [250.4, 36.4]
+    w.wcs.ctype = ["RA---TAN", "DEC--TAN"]
+    w.wcs.cd = inv  # degrees per pixel: rows are (RA, Dec)
+    return w
+
+
+@pytest.mark.parametrize("angle", [0.0, 31.0, -62.0, 90.0, 135.0, -170.0])
+@pytest.mark.parametrize("parity", [1, -1])
+def test_wcs_orientation_gives_north_angle_and_parity(angle, parity):
+    from wilds.solving import wcs_orientation
+
+    got_angle, got_parity = wcs_orientation(_wcs(angle, parity), 500.0, 400.0)
+    assert got_parity == parity
+    assert (got_angle - angle + 180.0) % 360.0 - 180.0 == pytest.approx(0.0, abs=0.01)
+
+
+def test_the_solve_result_carries_the_orientation():
+    from wilds.solving.solver import wcs_orientation
+
+    mock_inner = _mock_solver_context(has_match=True)
+    solution_wcs = _wcs(31.0, -1)
+    mock_inner.solve.return_value.best_match.return_value.astropy_wcs.return_value = solution_wcs
+    with patch("astrometry.series_5200") as mock_series, patch(
+        "astrometry.Solver", return_value=mock_inner
+    ):
+        mock_series.index_files.return_value = []
+        with PlateSolver(cache_dir="/tmp", scales={0}) as solver:
+            result = solver.solve(np.array([[10.0, 20.0]]), image_width=1000, image_height=800)
+    assert result is not None
+    assert (result.north_deg, result.parity) == pytest.approx(
+        wcs_orientation(solution_wcs, 500.0, 400.0)
+    )
+    assert result.parity == -1 and result.north_deg == pytest.approx(31.0, abs=0.01)
+
+
+def test_local_index_files_are_chosen_by_scale_and_nothing_is_downloaded(tmp_path):
+    folder = tmp_path / "5200"
+    folder.mkdir()
+    names = (
+        "index-5200-10.fits",
+        "index-5201-10.fits",
+        "index-5201-09.fits",
+        "index-5203-10.fits",
+        "notes.txt",
+    )
+    for name in names:
+        (folder / name).write_bytes(b"")
+    with patch("astrometry.series_5200") as mock_series:
+        solver = PlateSolver(cache_dir=tmp_path, scales={1, 0}, download=False)
+        mock_series.index_files.assert_not_called()
+    assert [f.name for f in solver._index_files] == [
+        "index-5200-10.fits",
+        "index-5201-09.fits",
+        "index-5201-10.fits",
+    ]
