@@ -142,7 +142,13 @@ class PlateSolver:
         else:
             # Use only files already present — no network access.
             # series_5200 stores files under <cache_dir>/5200/.
-            self._index_files = sorted((resolved / "5200").glob("*.fits"))
+            # Only the scales asked for: index-52SS-NN.fits is scale SS, healpix tile NN. (A folder
+            # may hold other scales, or a file still being copied.)
+            self._index_files = sorted(
+                f
+                for s in sorted(scales)
+                for f in (resolved / "5200").glob(f"index-52{s:02d}-*.fits")
+            )
             logger.info("Found %d local index file(s) in %s", len(self._index_files), resolved / "5200")
         self._solver: astrometry.Solver | None = None
 

@@ -226,3 +226,25 @@ def test_the_solve_result_carries_the_orientation():
         wcs_orientation(solution_wcs, 500.0, 400.0)
     )
     assert result.parity == -1 and result.north_deg == pytest.approx(31.0, abs=0.01)
+
+
+def test_local_index_files_are_chosen_by_scale_and_nothing_is_downloaded(tmp_path):
+    folder = tmp_path / "5200"
+    folder.mkdir()
+    names = (
+        "index-5200-10.fits",
+        "index-5201-10.fits",
+        "index-5201-09.fits",
+        "index-5203-10.fits",
+        "notes.txt",
+    )
+    for name in names:
+        (folder / name).write_bytes(b"")
+    with patch("astrometry.series_5200") as mock_series:
+        solver = PlateSolver(cache_dir=tmp_path, scales={1, 0}, download=False)
+        mock_series.index_files.assert_not_called()
+    assert [f.name for f in solver._index_files] == [
+        "index-5200-10.fits",
+        "index-5201-09.fits",
+        "index-5201-10.fits",
+    ]
