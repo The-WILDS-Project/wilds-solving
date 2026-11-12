@@ -1,5 +1,12 @@
 from .extractor import extract_sources
-from .solver import Confidence, PlateSolver, PositionHint, ScaleHint, SolveResult
+from .solver import (
+    Confidence,
+    PlateSolver,
+    PositionHint,
+    ScaleHint,
+    SolveResult,
+    wcs_orientation,
+)
 
 __all__ = [
     "extract_sources",
@@ -8,4 +15,5 @@ __all__ = [
     "PositionHint",
     "ScaleHint",
     "SolveResult",
+    "wcs_orientation",
 ]

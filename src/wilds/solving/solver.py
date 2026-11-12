@@ -61,6 +61,22 @@ class PositionHint:
     radius_deg: float = 2.0
 
 
+def wcs_orientation(wcs: WCS, x: float, y: float) -> tuple[float, int]:
+    """How the sky lies in the image around pixel ``(x, y)`` (x to the right, y downward, as the
+    array is displayed): the angle of sky north counter-clockwise from the top of the image, in
+    ``(-180, 180]``, and the parity, ``+1`` for the usual sky view (east 90 degrees
+    counter-clockwise from north) and ``-1`` for a mirrored image."""
+    ra, dec = wcs.all_pix2world([[x, y]], 0)[0]
+    step = 1.0 / 3600.0  # one arcsecond: far smaller than the field, far larger than rounding
+    cos_dec = max(math.cos(math.radians(dec)), 1e-6)
+    north = wcs.all_world2pix([[ra, min(dec + step, 90.0)]], 0)[0] - np.array([x, y])
+    east = wcs.all_world2pix([[ra + step / cos_dec, dec]], 0)[0] - np.array([x, y])
+    angle = math.degrees(math.atan2(-north[0], -north[1]))
+    angle = 180.0 if angle <= -180.0 else angle
+    cross = north[0] * east[1] - north[1] * east[0]  # y runs down: -1 for the usual view
+    return angle, (1 if cross < 0 else -1)
+
+
 @dataclass(frozen=True)
 class SolveResult:
     """Result of a successful plate solve."""
@@ -71,6 +87,8 @@ class SolveResult:
     pixel_scale_arcsec: float
     logodds: float              # log-odds of the winning match (higher = more confident)
     confidence: Confidence      # qualitative label derived from logodds
+    north_deg: float = 0.0      # angle of north counter-clockwise from the image top, at the centre
+    parity: int = 1             # +1 east is counter-clockwise from north on screen, -1 mirrored
 
 
 class PlateSolver:
@@ -245,6 +263,8 @@ class PlateSolver:
         scales_deg = proj_plane_pixel_scales(wcs)
         pixel_scale = float(np.mean(scales_deg)) * 3600.0  # → arcsec/px
 
+        north_deg, parity = wcs_orientation(wcs, cx, cy)
+
         return SolveResult(
             wcs=wcs,
             ra_deg=float(ra),
@@ -252,6 +272,8 @@ class PlateSolver:
             pixel_scale_arcsec=pixel_scale,
             logodds=match.logodds,
             confidence=_confidence_from_logodds(match.logodds),
+            north_deg=north_deg,
+            parity=parity,
         )
 
     async def solve_async(
